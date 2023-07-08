@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<script src="https://pixijs.download/release/pixi.js"></script>
+<script src="./tetris_shape.js"></script>
+<script>
+    class Pixel {
+        x;
+        y;
+        value = 0;
+        color = 0xa6a6a6;
+        border = 1;
+        border_color = 0xffffff;
+    }
+
+    const pixelSize = 20;
+    const colSize = 10;
+    const rowSize = 20;
+    const mask_x_offset = 100;
+    const mask_y_offset = 100;
+    const clearDelay = 500;
+    // const PIXI = require('PIXI.js');
+    const maskGraphics = new PIXI.Graphics();
+    let app = new PIXI.Application({antialias: true, width: 600, height: 800});
+    document.body.appendChild(app.view);
+    let map = new Array(20);
+    let pause = false;
+    let clearBegin = 0;
+    let fail = false;
+
+    // Create window frame
+    let frame = new PIXI.Graphics();
+    frame.beginFill(0x666666);
+    frame.lineStyle({color: 0xffffff, width: 4, alignment: 0});
+    frame.drawRect(0, 0, 600, 800);
+    frame.position.set(0, 0);
+    app.stage.addChild(frame);
+
+    // Create a graphics object to define our mask
+    let mask = new PIXI.Graphics();
+    // Add the rectangular area to show
+    mask.beginFill(0xffffff);
+    mask.drawRect(mask_x_offset, mask_y_offset, colSize * pixelSize, rowSize * pixelSize);
+    mask.endFill();
+
+    // Add container that will hold our masked content
+    let maskContainer = new PIXI.Container();
+    // Set the mask to use our graphics object from above
+    maskContainer.mask = mask;
+    // Add the mask as a child, so that the mask is positioned relative to its parent
+    maskContainer.addChild(mask);
+    maskContainer.addChild(maskGraphics);
+    // Offset by the window's frame width
+    maskContainer.position.set(0, 0);
+    // And add the container to the window!
+    frame.addChild(maskContainer);
+
+    const ShapeClasses = [Shape0, Shape1, Shape2, Shape3, Shape4, Shape5, Shape6]
+
+    let curObj = getNewShape();
+
+    initGame();
+
+    function initGame() {
+        for (let i = 0; i < map.length; i++) {
+            map[i] = new Array(10).fill(new Pixel); //每行有10列
+        }
+    }
+
+    function getNewShape() {
+        let index = Math.floor(Math.random() * ShapeClasses.length);
+        let result = new ShapeClasses[index]();
+        result.x = (Math.floor((colSize - 4) / 2) + result.x) * pixelSize;
+        result.y = (0 + result.y) * pixelSize;
+        result.shapeIndex = Math.floor(Math.random() * result.shapes.length);
+        return result;
+    }
+
+    function renderMap(g) {
+        map.forEach((row, rowIndex) => {
+            row.forEach((pixel, colIndex) => {
+                g.beginFill(pixel.color);
+                g.lineStyle(pixel.border, pixel.border_color);
+                g.drawRect(colIndex * pixelSize + mask_x_offset, rowIndex * pixelSize + mask_y_offset, pixelSize, pixelSize);
+            })
+        })
+    }
+
+    function clear() {
+        for (let rowIndex = 0; rowIndex < rowSize; rowIndex++) {
+            let rowFilledSize = 0;
+            for (let colIndex = 0; colIndex < colSize; colIndex++) {
+                if (map[rowIndex][colIndex].value === 1) {
+                    rowFilledSize++;
+                }
+            }
+            if (rowFilledSize === colSize) {
+                moveDown(rowIndex);
+            }
+        }
+    }
+
+    function moveDown(destRow) {
+        for (let rowIndex = destRow - 1; rowIndex >= 0; rowIndex--) {
+            for (let colIndex = 0; colIndex < colSize; colIndex++) {
+                map[rowIndex + 1][colIndex] = map[rowIndex][colIndex];
+            }
+        }
+        for (let colIndex = 0; colIndex < colSize; colIndex++) {
+            map[0][colIndex] = new Pixel();
+        }
+    }
+
+    app.ticker.add((delta) => {
+        if (pause) {
+            return;
+        }
+        maskGraphics.clear();
+        // maskGraphics.beginFill(Math.floor(Math.random()*16777215).toString(16));
+        renderMap(maskGraphics);
+        curObj.render(maskGraphics)
+        maskGraphics.endFill();
+
+        if (curObj.canDown()) {
+            curObj.y += 1;
+            clearBegin = 0;
+        } else {
+            if (clearBegin !== 0) {
+                if (Date.now() - clearBegin > clearDelay) {
+                    curObj.destroy();
+                    //计算消除的行
+                    clear();
+                    if (!fail) {
+                        curObj = getNewShape();
+                    }
+                }
+            } else {
+                clearBegin = Date.now();
+            }
+        }
+    });
+
+    // Enable interactivity!
+    app.stage.interactive = true;
+    app.stage.addEventListener('pointerdown', (e) => {
+        console.log(e)
+        curObj.rotate();
+    })
+
+    document.addEventListener('keydown', (ev) => {
+        // if(ev.code == "BracketLeft") {
+        //     physicsSteps -= 5;
+        //     if(physicsSteps < 5) physicsSteps = 5;
+        //     timestep = 1000/physicsSteps;
+        //     deltaTime = timestep/1000;
+        // }
+        // if(ev.code == "BracketRight") {
+        //     physicsSteps += 5;
+        //     if(physicsSteps > 200) physicsSteps = 200;
+        //     timestep = 1000/physicsSteps;
+        //     deltaTime = timestep/1000;
+        // }
+        // if(ev.code == "Delete") {
+        //     deleteQueued = true;
+        // }
+        if (ev.code === "ArrowLeft") {
+            if (curObj.canLeft()) curObj.x -= pixelSize;
+        }
+        if (ev.code === "ArrowRight") {
+            if (curObj.canRight()) curObj.x += pixelSize;
+        }
+        if (ev.code === "ArrowDown") {
+            if (curObj.canDown()) {
+                if (curObj.canDown(curObj.y + pixelSize)) {
+                    curObj.y += pixelSize;
+                } else {
+                    curObj.y = (Math.floor(curObj.y / pixelSize) + 1) * pixelSize;
+                }
+            }
+        }
+        if (ev.code === "Space") {
+            pause = !pause;
+        }
+    });
+</script>
+</body>
+</html>

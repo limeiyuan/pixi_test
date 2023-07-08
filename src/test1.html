@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Hello World!</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            border: 0;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+<script src="pixi.min.js"></script>
+<script>
+    // Node integration thanks to Electron (otherwise you would source these in the head tag, like normal)
+    const PIXI = require('PIXI.js');
+
+    let app = new PIXI.Application({
+        width: window.innerWidth,         // default: 800
+        height: window.innerHeight,        // default: 600
+        antialias: true,    // default: false
+        transparent: false, // default: false
+        resolution: 1       // default: 1
+    });
+    document.body.appendChild(app.view);
+
+    app.renderer.autoResize = true;
+    app.renderer.resize(window.innerWidth, window.innerHeight);
+
+    let sprite = PIXI.Sprite.from('bunny.png');
+    app.stage.addChild(sprite);
+
+    let elapsed = 0.0;
+    // Tell our application's ticker to run a new callback every frame, passing
+    // in the amount of time that has passed since the last tick
+    app.ticker.add((delta) => {
+        // Add the time to our total elapsed time
+        elapsed += delta;
+        // Update the sprite's X position based on the cosine of our elapsed time.  We divide
+        // by 50 to slow the animation down a bit...
+        sprite.x = 100.0 + Math.cos(elapsed/50.0) * 100.0;
+    });
+
+</script>
+</body>
+</html>
